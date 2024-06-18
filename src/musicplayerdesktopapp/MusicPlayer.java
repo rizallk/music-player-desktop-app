@@ -2,6 +2,7 @@ package musicplayerdesktopapp;
 
 import javafx.geometry.Insets;
 import java.io.File;
+import java.util.Map;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
@@ -12,19 +13,21 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.Callback;
 
 public class MusicPlayer {
-    private TableView<Song> songTable;
-    private ObservableList<Song> songList;
+    private final TableView<Song> songTable;
+    private final ObservableList<Song> songList;
     private MediaPlayer mediaPlayer;
 
     public MusicPlayer() {
@@ -32,28 +35,33 @@ public class MusicPlayer {
         songTable = new TableView<>(songList);
 
         TableColumn<Song, String> colPlay = new TableColumn<>("Play");
-        colPlay.setCellFactory(new Callback<TableColumn<Song, String>, TableCell<Song, String>>() {
+        colPlay.setCellFactory((TableColumn<Song, String> param) -> new TableCell<Song, String>() {
+            final Button btn = new Button();
+            final ImageView playIcon = new ImageView(new Image("file:src/images/play-icon.png"));
+            
+            {
+                // Atur lebar gambar ikon volume dan pertahankan rasio aspeknya
+                playIcon.setFitHeight(14);
+                playIcon.setPreserveRatio(true);
+                
+                // Atur volumeIcon sebagai grafis tombol
+                btn.setGraphic(playIcon);
+            }
+            
             @Override
-            public TableCell<Song, String> call(TableColumn<Song, String> param) {
-                return new TableCell<Song, String>() {
-                    final Button btn = new Button("Play");
-
-                    @Override
-                    protected void updateItem(String item, boolean empty) {
-                        super.updateItem(item, empty);
-                        if (empty) {
-                            setGraphic(null);
-                            setText(null);
-                        } else {
-                            btn.setOnAction(event -> {
-                                Song song = getTableView().getItems().get(getIndex());
-                                handlePlaySong(song.getFilePath(), getIndex());
-                            });
-                            setGraphic(btn);
-                            setText(null);
-                        }
-                    }
-                };
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                    setText(null);
+                } else {
+                    btn.setOnAction(event -> {
+                        Song song = getTableView().getItems().get(getIndex());
+                        handlePlaySong(song.getFilePath(), getIndex());
+                    });
+                    setGraphic(btn);
+                    setText(null);
+                }
             }
         });
         colPlay.setPrefWidth(75);
@@ -72,7 +80,7 @@ public class MusicPlayer {
 
         songTable.getColumns().addAll(colPlay, colTitle, colArtist, colDuration);
 
-        // Load songs from default music folder
+        // Load songs dari default music folder
         loadSongsFromDefaultMusicFolder();
     }
 
@@ -96,6 +104,11 @@ public class MusicPlayer {
         Button btnOpenFile = new Button("Open file");
         btnOpenFile.setOnAction(e -> handleOpenFile());
         topControls.getChildren().addAll(spacer, btnOpenFile);
+        
+         // Tombol "Open Folder"
+        Button btnOpenFolder = new Button("Open Folder");
+        btnOpenFolder.setOnAction(e -> handleOpenFolder());
+        topControls.getChildren().add(btnOpenFolder);
 
         // Menempatkan HBox teks dan tombol di atas BorderPane
         pane.setTop(topControls);
@@ -103,8 +116,8 @@ public class MusicPlayer {
         // Menambahkan daftar lagu ke dalam BorderPane di bagian bawah
         pane.setCenter(songTable);
 
-        // Setting padding for the main pane
-        pane.setPadding(new Insets(10, 10, 10, 10)); // top, right, bottom, left
+        // Setting padding untuk pane
+        pane.setPadding(new Insets(10));
 
         return pane;
     }
@@ -114,8 +127,16 @@ public class MusicPlayer {
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Audio Files", "*.mp3", "*.wav"));
         File file = fileChooser.showOpenDialog(new Stage());
         if (file != null) {
-//            songList.add(new Song("Play", file.getName(), "Unknown", "Unknown", file.getPath()));
-            handlePlaySong(file.getPath(), songList.size() - 1);
+            handlePlaySong(file.getPath(), -1); // -1 sebagai tanda lagu tersebut tidak masuk dalam songList
+        }
+    }
+    
+    private void handleOpenFolder() {
+        DirectoryChooser directoryChooser = new DirectoryChooser();
+        File selectedDirectory = directoryChooser.showDialog(new Stage());
+        if (selectedDirectory != null) {
+            songList.clear();
+            loadSongsFromFolder(selectedDirectory);
         }
     }
 
@@ -123,21 +144,35 @@ public class MusicPlayer {
         Stage stage = new Stage();
         Media media = new Media(new File(filePath).toURI().toString());
         mediaPlayer = new MediaPlayer(media);
-        MusicPlayerWindow playerWindow = new MusicPlayerWindow(mediaPlayer, songList, index);
 
-        Scene scene = new Scene(playerWindow.getView(), 500, 200);
-        stage.setTitle("Playing Music");
-        stage.setScene(scene);
-        
-        stage.setOnCloseRequest(event -> {
-            if (mediaPlayer != null) {
-                mediaPlayer.stop();
+        mediaPlayer.setOnReady(() -> {
+            ObservableList<Song> tempSongList = FXCollections.observableArrayList();
+            Map<String, Object> metadata = media.getMetadata();
+            String title = (String) metadata.getOrDefault("title", new File(filePath).getName());
+            String artist = (String) metadata.getOrDefault("artist", "Unknown Artist");
+            String album = (String) metadata.getOrDefault("album", "Unknown Album");
+            String genre = (String) metadata.getOrDefault("genre", "Unknown Genre");
+            String duration = String.format("%d:%02d",
+                    (int) media.getDuration().toMinutes(),
+                    (int) (media.getDuration().toSeconds() % 60));
+
+            if (index == -1) {
+                tempSongList.add(new Song(title, artist, album, genre, duration, filePath));
             }
+
+            MusicPlayerWindow playerWindow = new MusicPlayerWindow(mediaPlayer, index == -1 ? tempSongList : songList, index == -1 ? 0 : index);
+
+            Scene scene = new Scene(playerWindow.getView(), 400, 250);
+            stage.setTitle("Playing Music");
+            stage.setScene(scene);
+
+            stage.setOnCloseRequest(event -> mediaPlayer.stop());
+
+            stage.show();
+            mediaPlayer.play();
         });
-        
-        stage.show();
-        mediaPlayer.play();
     }
+
 
     private void loadSongsFromDefaultMusicFolder() {
         String userHome = System.getProperty("user.home");
@@ -152,10 +187,15 @@ public class MusicPlayer {
                 Media media = new Media(file.toURI().toString());
                 mediaPlayer = new MediaPlayer(media);
                 mediaPlayer.setOnReady(() -> {
+                    Map<String, Object> metadata = media.getMetadata();
+                    String title = (String) metadata.getOrDefault("title", file.getName());
+                    String artist = (String) metadata.getOrDefault("artist", "Unknown Artist");
+                    String album = (String) metadata.getOrDefault("album", "Unknown Album");
+                    String genre = (String) metadata.getOrDefault("genre", "Unknown Genre");
                     String duration = String.format("%d:%02d",
                             (int) media.getDuration().toMinutes(),
                             (int) (media.getDuration().toSeconds() % 60));
-                    songList.add(new Song("Play", file.getName(), "Unknown", duration, file.getPath()));
+                    songList.add(new Song(title, artist, album, genre, duration, file.getPath()));
                 });
             }
         }
