@@ -26,8 +26,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 public class MusicPlayer {
-    private final TableView<Song> songTable;
-    private final ObservableList<Song> songList;
+    private TableView<Song> songTable;
+    private ObservableList<Song> songList;
     private MediaPlayer mediaPlayer;
 
     public MusicPlayer() {

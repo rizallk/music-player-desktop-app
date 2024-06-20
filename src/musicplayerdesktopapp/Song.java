@@ -1,12 +1,12 @@
 package musicplayerdesktopapp;
 
 public class Song {
-    private String title;
-    private String artist;
-    private String album;
-    private String genre;
-    private String duration;
-    private String filePath;
+    private final String title;
+    private final String artist;
+    private final String album;
+    private final String genre;
+    private final String duration;
+    private final String filePath;
 
     public Song(String title, String artist, String album, String genre, String duration, String filePath) {
         this.title = title;

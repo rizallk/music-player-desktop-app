@@ -14,6 +14,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.util.Duration;
 
 public class MusicPlayerWindow {
     private MediaPlayer mediaPlayer;
@@ -104,17 +105,17 @@ public class MusicPlayerWindow {
         
         progressSlider = new Slider();
         progressSlider.setMin(0);
-        progressSlider.setMax(100);
+        progressSlider.setMax(mediaPlayer.getTotalDuration().toSeconds());
         progressSlider.setPrefWidth(300);
         mediaPlayer.currentTimeProperty().addListener((observable, oldValue, newValue) -> {
             progressSlider.setValue(newValue.toSeconds());
             updateCurrentTimeLabel(newValue);
         });
         progressSlider.setOnMousePressed(event -> {
-            mediaPlayer.seek(javafx.util.Duration.seconds(progressSlider.getValue()));
+            mediaPlayer.seek(Duration.seconds(progressSlider.getValue()));
         });
         progressSlider.setOnMouseDragged(event -> {
-            mediaPlayer.seek(javafx.util.Duration.seconds(progressSlider.getValue()));
+            mediaPlayer.seek(Duration.seconds(progressSlider.getValue()));
         });
 
         currentTimeLabel = new Label("0:00");
